@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical">
+
+    <com.fmt.tiktokvideo.view.TikTokVideoView
+        android:id="@+id/video_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_marginStart="12dp"
+        android:layout_marginBottom="48dp"
+        android:orientation="vertical">
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/tv_alias"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_title"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:lineSpacingExtra="3dp"
+            android:maxWidth="260dp"
+            android:textColor="@android:color/white"
+            android:textSize="14sp" />
+
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:gravity="center_horizontal"
+        android:layout_marginEnd="4dp"
+        android:orientation="vertical">
+
+        <FrameLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content">
+
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
+                android:background="@drawable/ic_border_white">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:id="@+id/iv_avatar"
+                    android:layout_width="45dp"
+                    android:layout_height="45dp" />
+            </FrameLayout>
+
+            <FrameLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center|bottom"
+                android:background="@drawable/ic_circle_red">
+
+                <androidx.appcompat.widget.AppCompatImageView
+                    android:layout_width="12dp"
+                    android:layout_height="12dp"
+                    android:background="@mipmap/tiktok_add_star" />
+            </FrameLayout>
+
+        </FrameLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/mb_collect"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="25dp"
+            android:backgroundTint="@android:color/transparent"
+            android:gravity="center"
+            android:padding="0dp"
+            android:stateListAnimator="@null"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            app:icon="@mipmap/tiktok_star_normal"
+            app:iconSize="36dp"
+            app:iconGravity="top"
+            app:iconPadding="2dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/mb_comment"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:backgroundTint="@android:color/transparent"
+            android:gravity="center"
+            android:padding="0dp"
+            app:iconSize="36dp"
+            android:stateListAnimator="@null"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            app:icon="@mipmap/tiktok_comment_normal"
+            app:iconGravity="top"
+            app:iconPadding="2dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/mb_real_collect"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:backgroundTint="@android:color/transparent"
+            android:gravity="center"
+            android:padding="0dp"
+            app:iconSize="32dp"
+            android:stateListAnimator="@null"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            app:icon="@mipmap/tiktok_collect"
+            app:iconGravity="top"
+            app:iconPadding="2dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/mb_share"
+            android:layout_width="40dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            android:layout_marginBottom="38dp"
+            android:backgroundTint="@android:color/transparent"
+            android:gravity="center"
+            android:padding="0dp"
+            app:iconSize="36dp"
+            android:stateListAnimator="@null"
+            android:textColor="@android:color/white"
+            android:textSize="12sp"
+            app:icon="@mipmap/tiktok_btn_share"
+            app:iconGravity="top"
+            app:iconPadding="2dp" />
+
+    </LinearLayout>
+</FrameLayout>

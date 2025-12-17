@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    android:orientation="vertical">
+
+    <RelativeLayout
+        android:id="@+id/top_bar"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/dp_48"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/action_close"
+            android:layout_width="35dp"
+            android:layout_height="35dp"
+            android:layout_centerVertical="true"
+            android:layout_marginStart="@dimen/dp_10"
+            android:padding="@dimen/dp_6"
+            android:src="@mipmap/icon_close" />
+
+
+        <androidx.appcompat.widget.AppCompatTextView
+            android:id="@+id/title"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_centerInParent="true"
+            android:gravity="center"
+            android:text="@string/publish_title"
+            android:textColor="@android:color/black"
+            android:textSize="@dimen/sp_16" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/action_publish"
+            android:layout_width="70dp"
+            android:layout_height="@dimen/dp_30"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="@dimen/dp_16"
+            android:gravity="center"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="@dimen/dp_0"
+            android:text="@string/publish_button"
+            android:textColor="@android:color/white"
+            app:backgroundTint="@android:color/black"
+            app:cornerRadius="15dp" />
+
+        <com.google.android.material.progressindicator.CircularProgressIndicator
+            android:id="@+id/action_publish_progress"
+            style="@style/Widget.MaterialComponents.CircularProgressIndicator"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
+            android:layout_centerVertical="true"
+            android:layout_marginEnd="16dp"
+            android:gravity="center"
+            android:indeterminate="true"
+            android:visibility="visible"
+            app:indicatorColor="@android:color/black"
+            app:indicatorInset="2dp"
+            app:indicatorSize="30dp"
+            app:trackColor="@color/color_1D000000"
+            app:trackThickness="4dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1px"
+            android:layout_alignParentBottom="true"
+            android:background="@color/color_F4F3F4" />
+    </RelativeLayout>
+
+    <androidx.appcompat.widget.AppCompatEditText
+        android:id="@+id/input_view"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@android:color/white"
+        android:gravity="start|top"
+        android:hint="@string/publish_edit_hint"
+        android:maxLines="100"
+        android:minHeight="150dp"
+        android:padding="@dimen/dp_16"
+        android:textColor="@android:color/black"
+        android:textColorHint="@color/color_999"
+        android:textSize="@dimen/sp_14" />
+
+    <View
+        android:id="@+id/input_line"
+        android:layout_width="match_parent"
+        android:layout_height="1px"
+        android:background="@color/color_F4F3F4" />
+
+    <FrameLayout
+        android:id="@+id/file_container"
+        android:layout_width="120dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="@dimen/dp_16"
+        android:layout_marginTop="@dimen/dp_16"
+        android:gravity="start|top"
+        android:visibility="visible">
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/cover"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scaleType="centerCrop" />
+
+        <androidx.appcompat.widget.AppCompatImageView
+            android:id="@+id/video_icon"
+            android:layout_width="@dimen/dp_30"
+            android:layout_height="@dimen/dp_30"
+            android:layout_gravity="center"
+            android:src="@mipmap/icon_video_play"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+</LinearLayout>

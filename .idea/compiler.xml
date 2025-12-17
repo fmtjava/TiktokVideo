@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="CompilerConfiguration">
+    <bytecodeTargetLevel target="11" />
+  </component>
+  <component name="JavacSettings">
+    <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="TiktokVideo.nav-compiler" options="-proc:none" />
+      <module name="TiktokVideo.nav-compiler.main" options="-proc:none" />
+      <module name="TiktokVideo.nav-compiler.test" options="-proc:none" />
+    </option>
+  </component>
+</project>

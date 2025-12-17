@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">TiktokVideo</string>
+    <string name="loading_status_empty_no_data">虽然什么也没有,要不下拉刷新试试</string>
+    <string name="loading_status_empty_no_data_action">朕知道了</string>
+    <string name="abs_list_loading_footer_loading">努力加载中...</string>
+    <string name="abs_list_loading_footer_no_data">已经没有更多了</string>
+    <string name="abs_list_loading_footer_error">Retry</string>
+    <string name="navigation_title_home">首页</string>
+    <string name="navigation_title_mine">我的</string>
+    <string name="capture_tips">轻触拍照，长按摄像</string>
+    <string name="capture_tips_stop_recording">松开停止录像</string>
+    <string name="capture_tips_take_picture">轻触拍照</string>
+    <string name="capture_permission_message">必须的权限没有得到授权，功能将无法使用 请重新授权!</string>
+    <string name="preview_permission_message">请授权访问您的媒体文件的权限</string>
+    <string name="capture_permission_no">不</string>
+    <string name="capture_permission_ok">好的</string>
+    <string name="preview_ok">完成</string>
+    <string name="publish_title">素材发布</string>
+    <string name="publish_button">发布</string>
+    <string name="publish_edit_hint">加个描述，内容会被更多人看到哈~</string>
+    <string name="file_upload_generate_cover_fail">视频封面图生成失败</string>
+    <string name="file_upload_cover_fail">封面图上传失败</string>
+    <string name="file_upload_original_fail">原始文件上传失败</string>
+    <string name="file_upload_desc_illegal">描述内容不能为空</string>
+    <string name="file_upload_success">发布成功</string>
+    <string name="file_upload_fail">发布失败</string>
+</resources>
