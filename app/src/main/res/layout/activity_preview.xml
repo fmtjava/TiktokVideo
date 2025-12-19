@@ -6,11 +6,15 @@
     android:background="@color/black"
     android:orientation="vertical">
 
-    <com.fmt.tiktokvideo.view.TikTokVideoView
+    <androidx.media3.ui.PlayerView
         android:id="@+id/player_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:visibility="gone" />
+        android:keepScreenOn="true"
+        app:keep_content_on_player_reset="false"
+        app:surface_type="texture_view"
+        app:resize_mode="fit"
+        android:visibility="invisible" />
 
     <com.github.chrisbanes.photoview.PhotoView
         android:id="@+id/photo_view"

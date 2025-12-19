@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.view.View
 import android.view.ViewGroup
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.annotation.ColorInt
 import androidx.appcompat.app.AppCompatActivity
@@ -19,7 +20,6 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import cn.jzvd.Jzvd
-import com.fmt.tiktokvideo.AppContext
 import com.fmt.tiktokvideo.R
 import com.fmt.tiktokvideo.cache.UserManager
 import com.fmt.tiktokvideo.cache.encryptedPrefs
@@ -88,6 +88,15 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
                 }
             }
         }
+
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (Jzvd.backPress()) {
+                    return
+                }
+               finish()
+            }
+        })
     }
 
     override fun onClick(v: View) {
@@ -145,13 +154,6 @@ class MainActivity : AppCompatActivity(), View.OnClickListener {
 
             insets
         }
-    }
-
-    override fun onBackPressed() {
-        if (Jzvd.backPress()) {
-            return
-        }
-        super.onBackPressed()
     }
 
     companion object {

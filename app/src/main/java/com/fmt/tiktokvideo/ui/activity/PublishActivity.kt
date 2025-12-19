@@ -16,6 +16,7 @@ import androidx.lifecycle.lifecycleScope
 import com.fmt.tiktokvideo.AppContext
 import com.fmt.tiktokvideo.R
 import com.fmt.tiktokvideo.databinding.ActivityPublishBinding
+import com.fmt.tiktokvideo.ext.hideKeyboard
 import com.fmt.tiktokvideo.ext.invokeViewBinding
 import com.fmt.tiktokvideo.ext.loadUrl
 import com.fmt.tiktokvideo.utils.FileUtil
@@ -100,6 +101,9 @@ class PublishActivity : AppCompatActivity() {
      *  图片/视频上传
      */
     private fun publish() {
+        // 隐藏键盘
+        hideKeyboard()
+
         if (TextUtils.isEmpty(mBinding.inputView.text.toString())) {
             Toast.makeText(
                 AppContext, R.string.file_upload_desc_illegal,

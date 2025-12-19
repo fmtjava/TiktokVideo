@@ -13,6 +13,7 @@ import androidx.media3.common.Player
 import androidx.media3.common.VideoSize
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.database.StandaloneDatabaseProvider
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.cache.CacheDataSource
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
@@ -91,21 +92,28 @@ class MediaExo(jzvd: Jzvd?) : JZMediaInterface(jzvd), Player.Listener {
         mMediaHandler = Handler(Looper.getMainLooper())
         handler = Handler()
         mMediaHandler.post {
+            val context = jzvd.context
             // 使用单例 SimpleCache，避免重复创建导致异常
-            val cache = getOrCreateCache(jzvd.context)
+            val cache = getOrCreateCache(context)
+            // 构建同时支持本地文件 / content / http 的上游工厂
+            val upstreamFactory = DefaultDataSource.Factory(context, DefaultHttpDataSource.Factory())
             // 配置带缓存的数据源
             val cacheDataSourceFactory = CacheDataSource.Factory()
                 .setCache(cache)
-                .setUpstreamDataSourceFactory(DefaultHttpDataSource.Factory())
+                .setUpstreamDataSourceFactory(upstreamFactory)
                 .setFlags(CacheDataSource.FLAG_BLOCK_ON_CACHE)
 
-            mExoPlayer = ExoPlayer.Builder(jzvd.context)
+            // 创建 ExoPlayer
+            mExoPlayer = ExoPlayer.Builder(context)
                 .setMediaSourceFactory(ProgressiveMediaSource.Factory(cacheDataSourceFactory))
                 .build()
+            // 设置播放模式
             mExoPlayer?.repeatMode = Player.REPEAT_MODE_OFF
             val currUrl = jzvd.jzDataSource.currentUrl.toString()
+            // 创建播放 Item
             val mediaItem: MediaItem
             val file = File(currUrl)
+            // 区分是本地还是网络资源
             mediaItem = if (file.exists()) {
                 MediaItem.fromUri(file.absolutePath)
             } else {

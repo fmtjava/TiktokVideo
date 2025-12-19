@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.ContentValues
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraCharacteristics
 import android.media.MediaScannerConnection
@@ -13,10 +14,15 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.MediaStore
+import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
 import android.util.Size
 import android.view.MotionEvent
+import android.view.Surface
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.camera2.interop.Camera2CameraInfo
@@ -40,11 +46,14 @@ import androidx.camera.video.Recorder
 import androidx.camera.video.Recording
 import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
+import androidx.core.net.toUri
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updatePadding
 import androidx.dynamicanimation.animation.DynamicAnimation
 import androidx.dynamicanimation.animation.SpringAnimation
 import androidx.dynamicanimation.animation.SpringForce
@@ -70,19 +79,56 @@ import kotlin.math.roundToInt
 class CaptureActivity : AppCompatActivity() {
 
     private val mBinding by invokeViewBinding<ActivityCaptureBinding>()
-    private var mCamera: Camera? = null
-    private var mImageCapture: ImageCapture? = null
-    private var mVideoCapture: VideoCapture<Recorder>? = null
-    private var mVideoRecording: Recording? = null
+    private var mCamera: Camera? = null // 相机
+    private var mImageCapture: ImageCapture? = null // 图片拍摄
+    private var mVideoCapture: VideoCapture<Recorder>? = null // 视频拍摄
+    private var mVideoRecording: Recording? = null // 视频录制
+    private var mCameraProvider: ProcessCameraProvider? = null // 摄像头提供者
+    private var mCurrentLensFacing: Int = CameraSelector.LENS_FACING_BACK // 默认后置
+    private var mFlashMode: Int = ImageCapture.FLASH_MODE_OFF // 闪光灯状态，默认关闭
+    private lateinit var mPickMediaLauncher: ActivityResultLauncher<PickVisualMediaRequest>
+    private lateinit var mRequestMultiplePermissionsLauncher: ActivityResultLauncher<Array<String>>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(mBinding.root)
         setUpSystemBars()
-        ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_CODE)
+        registerPickMediaLauncher()
+        registerMultiplePermissionsLauncher()
+        initListener()
     }
 
+    private fun registerPickMediaLauncher() {
+        mPickMediaLauncher =
+            registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+                if (uri != null) {
+                    onFileSaved(uri)
+                }
+            }
+    }
+
+    private fun registerMultiplePermissionsLauncher() {
+        mRequestMultiplePermissionsLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { permissions ->
+                handleMultiplePermissionsResult(permissions)
+            }
+        val neededPermissions = PERMISSIONS.filter { permission ->
+            ContextCompat.checkSelfPermission(
+                this,
+                permission
+            ) != PackageManager.PERMISSION_GRANTED
+        }.toTypedArray()
+        if (neededPermissions.isNotEmpty()) {
+            mRequestMultiplePermissionsLauncher.launch(neededPermissions)
+        } else {
+            startCamera()
+        }
+    }
+
+    /**
+     *  设置沉浸式状态栏
+     */
     private fun setUpSystemBars() {
         // Android 10+ 关闭系统对导航栏的强制对比度优化，Android 10+ 系统会自动调整导航栏背景色以保证与内容的对比度，可能导致自定义主题失效
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -91,40 +137,133 @@ class CaptureActivity : AppCompatActivity() {
         val windowInsetsController = WindowCompat.getInsetsController(window, window.decorView)
         // 设置状态栏图标颜色， true→ 深色图标（适合浅色状态栏背景）false→ 浅色图标（适合深色状态栏背景）
         windowInsetsController.isAppearanceLightStatusBars = false
+
+        // 防止状态栏与顶部内容重叠
+        ViewCompat.setOnApplyWindowInsetsListener(mBinding.flController) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.statusBars())
+            val topInset = systemBars.top
+            mBinding.flController.updatePadding(top = topInset)
+            insets
+        }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == PERMISSION_CODE) {
-            // 强制校验这个页面的权限是否已全部申请
-            val deniedPermissions = mutableListOf<String>()
-            for (i in permissions.indices) {
-                val permission = permissions[i]
-                val result = grantResults[i]
-                if (result != PackageManager.PERMISSION_GRANTED) {
-                    deniedPermissions.add(permission)
+    private fun initListener() {
+        mBinding.actionClose.setOnClickListener {
+            finish()
+        }
+        mBinding.actionFlip.setOnClickListener {
+            switchCamera()
+        }
+        mBinding.actionFlash.setOnClickListener {
+            toggleFlash()
+        }
+        mBinding.actionAlbum.setOnClickListener {
+            mPickMediaLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
+        }
+    }
+
+    /**
+     *  摄像头切换
+     */
+    private fun switchCamera() {
+        val cameraProvider = mCameraProvider ?: return
+        mCurrentLensFacing = when (mCurrentLensFacing) {
+            CameraSelector.LENS_FACING_BACK -> {
+                if (cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA)) {
+                    CameraSelector.LENS_FACING_FRONT
+                } else {
+                    CameraSelector.LENS_FACING_BACK
                 }
             }
-            if (deniedPermissions.isEmpty()) {
-                startCamera()
+
+            CameraSelector.LENS_FACING_FRONT -> {
+                if (cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA)) {
+                    CameraSelector.LENS_FACING_BACK
+                } else {
+                    CameraSelector.LENS_FACING_FRONT
+                }
+            }
+
+            else -> throw IllegalStateException("Back and Front camera are unavailable")
+        }
+        // 重新绑定摄像头
+        bindCamera()
+    }
+
+    /**
+     * 打开/关闭闪光灯
+     */
+    private fun toggleFlash() {
+        // 前置摄像头不支持闪光灯
+        if (mCurrentLensFacing == CameraSelector.LENS_FACING_FRONT) {
+            Toast.makeText(applicationContext, "前置摄像头不支持闪光灯", Toast.LENGTH_SHORT).show()
+            return
+        }
+        // 切换闪光灯状态
+        mFlashMode = when (mFlashMode) {
+            ImageCapture.FLASH_MODE_OFF -> ImageCapture.FLASH_MODE_ON
+            ImageCapture.FLASH_MODE_ON -> ImageCapture.FLASH_MODE_OFF
+            ImageCapture.FLASH_MODE_AUTO -> ImageCapture.FLASH_MODE_OFF
+            else -> ImageCapture.FLASH_MODE_OFF
+        }
+        // 更新 ImageCapture 的闪光灯设置
+        mImageCapture?.flashMode = mFlashMode
+
+        // 更新按钮UI
+        updateFlashButtonUI()
+    }
+
+    /**
+     *  权限申请处理
+     */
+    private fun handleMultiplePermissionsResult(permissions: Map<String, Boolean>) {
+        val deniedPermissions = permissions.filter { !it.value }.keys
+        if (deniedPermissions.isEmpty()) {
+            startCamera()
+        } else {
+            // 检查是否有权限被永久拒绝（不再询问）
+            val permanentlyDeniedPermissions = deniedPermissions.filter { permission ->
+                !shouldShowRequestPermissionRationale(permission)
+            }
+            if (permanentlyDeniedPermissions.isNotEmpty()) {
+                // 有权限被永久拒绝，需要引导用户去设置页面
+                AlertDialog.Builder(this)
+                    .setMessage(getString(R.string.capture_permission_go_settings_message))
+                    .setNegativeButton(getString(R.string.capture_permission_no)) { dialog, _ ->
+                        dialog.dismiss()
+                        finish()
+                    }
+                    .setPositiveButton(getString(R.string.capture_permission_go_settings)) { dialog, _ ->
+                        dialog.dismiss()
+                        // 打开应用设置页面
+                        goToSettings()
+                    }
+                    .create()
+                    .show()
             } else {
+                // 权限没有被永久拒绝，可以再次申请
                 AlertDialog.Builder(this)
                     .setMessage(getString(R.string.capture_permission_message))
                     .setNegativeButton(getString(R.string.capture_permission_no)) { dialog, _ ->
                         dialog.dismiss()
                         this@CaptureActivity.finish()
                     }.setPositiveButton(getString(R.string.capture_permission_ok)) { dialog, _ ->
-                        ActivityCompat.requestPermissions(
-                            this@CaptureActivity, deniedPermissions.toTypedArray(),
-                            PERMISSION_CODE
-                        )
+                        mRequestMultiplePermissionsLauncher.launch(deniedPermissions.toTypedArray())
                         dialog.dismiss()
                     }.create().show()
             }
+        }
+    }
+
+    /**
+     *  用户点击不在询问后，跳转至设置页面
+     */
+    private fun goToSettings() {
+        Intent(ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri()).apply {
+            this.addCategory(Intent.CATEGORY_DEFAULT)
+            this.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }.also { intent ->
+            startActivity(intent)
         }
     }
 
@@ -135,55 +274,93 @@ class CaptureActivity : AppCompatActivity() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
             val cameraProvider = cameraProviderFuture.get()
-            val cameraSelector = when {
-                cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.DEFAULT_BACK_CAMERA
-                cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.DEFAULT_FRONT_CAMERA
+            mCameraProvider = cameraProvider
+            // 初始化摄像头方向
+            mCurrentLensFacing = when {
+                cameraProvider.hasCamera(CameraSelector.DEFAULT_BACK_CAMERA) -> CameraSelector.LENS_FACING_BACK
+                cameraProvider.hasCamera(CameraSelector.DEFAULT_FRONT_CAMERA) -> CameraSelector.LENS_FACING_FRONT
                 else -> throw IllegalStateException("Back and Front camera are unavailable")
             }
-
-            // preview 画面预览
-            val displayRotation = mBinding.previewView.display.rotation
-            val preview = Preview.Builder()
-                .setTargetRotation(displayRotation)
-                .build().also {
-                    it.surfaceProvider = mBinding.previewView.surfaceProvider
-                }
-
-            // imageCapture 图片拍摄，设置图片拍摄质量参数
-            this.mImageCapture = ImageCapture.Builder()
-                .setTargetRotation(displayRotation)
-                .setCaptureMode(CAPTURE_MODE_MINIMIZE_LATENCY) // 压缩图片的质量
-                .setJpegQuality(100)
-                .setResolutionSelector(
-                    ResolutionSelector.Builder().setResolutionStrategy(
-                        ResolutionStrategy(
-                            Size(1920, 1080), // 期望的最大分辨率
-                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER // 降级规则
-                        )
-                    ).build()
-                ).build()
-            val useCases = mutableListOf(preview, mImageCapture)
-            if (isSupportCombinedUsages(cameraSelector, cameraProvider)) {
-                // 设置视频录制参数
-                val recorder = Recorder.Builder()
-                    .setQualitySelector(getQualitySelector(cameraSelector, cameraProvider))
-                    .build()
-                mVideoCapture = VideoCapture.withOutput(recorder)
-                useCases.add(mVideoCapture)
-            }
-            try {
-                // 注意：要先解绑
-                cameraProvider.unbindAll()
-                this.mCamera = cameraProvider.bindToLifecycle(
-                    this,
-                    cameraSelector,
-                    *useCases.toTypedArray()
-                )
-                bindUI()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            bindCamera()
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    /**
+     *  绑定摄像头
+     */
+    private fun bindCamera() {
+        val cameraProvider = mCameraProvider ?: return
+        // 根据当前方向创建 CameraSelector
+        val cameraSelector = when (mCurrentLensFacing) {
+            CameraSelector.LENS_FACING_BACK -> CameraSelector.DEFAULT_BACK_CAMERA
+            CameraSelector.LENS_FACING_FRONT -> CameraSelector.DEFAULT_FRONT_CAMERA
+            else -> throw IllegalStateException("Back and Front camera are unavailable")
+        }
+        // 前置摄像头不支持闪光灯，自动关闭
+        if (mCurrentLensFacing == CameraSelector.LENS_FACING_FRONT) {
+            mFlashMode = ImageCapture.FLASH_MODE_OFF
+        }
+        // 更新闪光灯按钮UI
+        updateFlashButtonUI()
+        // preview 画面预览
+        val displayRotation = mBinding.previewView.display?.rotation ?: Surface.ROTATION_0
+        val preview = Preview.Builder()
+            .setTargetRotation(displayRotation)
+            .build().also {
+                it.surfaceProvider = mBinding.previewView.surfaceProvider
+            }
+
+        // imageCapture 图片拍摄，设置图片拍摄质量参数
+        this.mImageCapture = ImageCapture.Builder()
+            .setTargetRotation(displayRotation)
+            .setCaptureMode(CAPTURE_MODE_MINIMIZE_LATENCY) // 压缩图片的质量
+            .setJpegQuality(100)
+            .setFlashMode(mFlashMode) // 设置闪光灯模式
+            .setResolutionSelector(
+                ResolutionSelector.Builder().setResolutionStrategy(
+                    ResolutionStrategy(
+                        Size(1920, 1080), // 期望的最大分辨率
+                        ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER // 降级规则
+                    )
+                ).build()
+            ).build()
+        val useCases = mutableListOf(preview, mImageCapture)
+        if (isSupportCombinedUsages(cameraSelector, cameraProvider)) {
+            // 设置视频录制参数
+            val recorder = Recorder.Builder()
+                .setQualitySelector(getQualitySelector(cameraSelector, cameraProvider))
+                .build()
+            mVideoCapture = VideoCapture.withOutput(recorder)
+            useCases.add(mVideoCapture)
+        }
+        // 注意：这里要 try - catch，bindToLifecycle 极端情况下会报错
+        try {
+            // 注意：要先解绑
+            cameraProvider.unbindAll()
+            this.mCamera = cameraProvider.bindToLifecycle(
+                this,
+                cameraSelector,
+                *useCases.toTypedArray()
+            )
+            bindUI()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    /**
+     * 更新闪光灯按钮UI
+     */
+    private fun updateFlashButtonUI() {
+        val iconRes = when (mFlashMode) {
+            ImageCapture.FLASH_MODE_ON -> R.mipmap.icon_flash_on
+            ImageCapture.FLASH_MODE_OFF -> R.mipmap.icon_flash_close
+            else -> R.mipmap.icon_flash_close
+        }
+        mBinding.actionFlash.setIconResource(iconRes)
+
+        // 如果前置摄像头，禁用按钮
+        mBinding.actionFlash.isEnabled = mCurrentLensFacing == CameraSelector.LENS_FACING_BACK
     }
 
     /**
@@ -204,6 +381,7 @@ class CaptureActivity : AppCompatActivity() {
             Recorder.getVideoCapabilities(cameraInfo.first())
                 .getSupportedQualities(DynamicRange.SDR)
                 .filter {
+                    // 超清、高清、标清
                     listOf(Quality.FHD, Quality.HD, Quality.SD).contains(it)
                 }
         return QualitySelector.from(supportQualities[0])
@@ -246,6 +424,8 @@ class CaptureActivity : AppCompatActivity() {
             }
             true
         }
+        // 初始化闪光灯按钮状态
+        updateFlashButtonUI()
     }
 
     /**
@@ -463,13 +643,22 @@ class CaptureActivity : AppCompatActivity() {
                 ) ?: return@launch
                 cursor.moveToFirst()
                 // 取出录制图片/视频本地路径
-                val outputFilePath = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA))
-                val outputFileMimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE))
+                val outputFilePath =
+                    cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA))
+                // 取出录制图片/视频的文件类型
+                val outputFileMimeType =
+                    cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE))
 
+                // 记得关闭，防止内存泄露
                 cursor.close()
 
                 // 主动扫描一次相册，保证图片/视频被成功保存
-                MediaScannerConnection.scanFile(this@CaptureActivity, arrayOf(outputFilePath), arrayOf(outputFileMimeType), null)
+                MediaScannerConnection.scanFile(
+                    this@CaptureActivity,
+                    arrayOf(outputFilePath),
+                    arrayOf(outputFileMimeType),
+                    null
+                )
 
                 withContext(Dispatchers.Main) {
                     val isVideo = MimeTypes.isVideo(outputFileMimeType)
@@ -491,7 +680,7 @@ class CaptureActivity : AppCompatActivity() {
             if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
                 add(Manifest.permission.WRITE_EXTERNAL_STORAGE)
             }
-        }.toTypedArray()
+        }
 
         // spring 动画参数配置
         private const val SPRING_STIFFNESS_ALPHA_OUT = 100f
@@ -504,8 +693,5 @@ class CaptureActivity : AppCompatActivity() {
         private const val VIDEO_TYPE = "video/mp4"
         private const val RELATIVE_PATH_PICTURE = "Pictures/Jetpack"
         private const val RELATIVE_PATH_VIDEO = "Movies/Jetpack"
-
-        // request code
-        private const val PERMISSION_CODE = 1000
     }
 }

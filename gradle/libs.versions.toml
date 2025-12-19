@@ -5,7 +5,6 @@ cameraCore = "1.5.1"
 coilCompose = "3.2.0"
 converterGson = "3.0.0"
 crashreport = "latest.release"
-datastorePreferences = "1.2.0"
 jiaozivideoplayer = "7.7.2.3300"
 kotlin = "2.0.0"
 compilesdk = '35'
@@ -36,6 +35,7 @@ composeBom = "2025.12.00"
 jetbrainsKotlinJvm = "2.0.0"
 swiperefreshlayout = "1.2.0"
 workRuntime = "2.11.0"
+media3UiVersion = "1.9.0"
 
 [libraries]
 androidx-camera-camera2 = { module = "androidx.camera:camera-camera2", version.ref = "cameraCore" }

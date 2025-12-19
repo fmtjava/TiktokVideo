@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
@@ -18,6 +19,25 @@
         android:layout_marginBottom="200dp"
         android:text="@string/capture_tips"
         android:textColor="@android:color/white" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/action_album"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:background="@android:color/transparent"
+        android:insetTop="@dimen/dp_0"
+        android:insetBottom="@dimen/dp_0"
+        android:padding="@dimen/dp_0"
+        android:text="@string/camera_album"
+        android:textSize="@dimen/sp_12"
+        app:icon="@mipmap/icon_tiktok_album"
+        app:iconGravity="textTop"
+        app:iconTint="@android:color/white"
+        android:textColor="@android:color/white"
+        app:iconSize="@dimen/dp_24"
+        android:layout_gravity="bottom"
+        android:layout_marginStart="@dimen/dp_20"
+        android:layout_marginBottom="@dimen/dp_80"/>
 
     <com.google.android.material.progressindicator.CircularProgressIndicator
         android:id="@+id/record_view"
@@ -39,5 +59,72 @@
         android:layout_height="@dimen/dp_64"
         android:background="@drawable/capture_focus_drawable"
         android:visibility="gone" />
+
+
+    <FrameLayout
+        android:id="@+id/fl_controller"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <FrameLayout
+            android:id="@+id/fl_action_close"
+            android:layout_width="60dp"
+            android:layout_height="60dp"
+            android:paddingStart="@dimen/dp_16"
+            android:paddingTop="@dimen/dp_20"
+            tools:ignore="RtlSymmetry">
+
+            <androidx.appcompat.widget.AppCompatImageView
+                android:id="@+id/action_close"
+                android:layout_width="20dp"
+                android:layout_height="@dimen/dp_20"
+                app:srcCompat="@mipmap/icon_close"
+                app:tint="@android:color/white" />
+
+        </FrameLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="@dimen/dp_20"
+            android:orientation="vertical">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/action_flip"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@android:color/transparent"
+                android:insetTop="@dimen/dp_0"
+                android:insetBottom="@dimen/dp_0"
+                android:padding="@dimen/dp_0"
+                android:text="@string/camera_flip"
+                android:textSize="@dimen/sp_12"
+                app:icon="@mipmap/icon_tiktok_flip"
+                app:iconGravity="textTop"
+                app:iconTint="@android:color/white"
+                android:textColor="@android:color/white"
+                app:iconSize="@dimen/dp_24" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/action_flash"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="@dimen/dp_15"
+                android:background="@android:color/transparent"
+                android:insetTop="@dimen/dp_0"
+                android:insetBottom="@dimen/dp_0"
+                android:padding="@dimen/dp_0"
+                android:text="@string/camera_flash"
+                android:textSize="@dimen/sp_12"
+                app:icon="@mipmap/icon_flash_close"
+                app:iconGravity="textTop"
+                android:textColor="@android:color/white"
+                app:iconTint="@android:color/white"
+                app:iconSize="@dimen/dp_24" />
+
+        </LinearLayout>
+
+    </FrameLayout>
 
 </FrameLayout>

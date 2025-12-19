@@ -1,6 +1,7 @@
 package com.fmt.tiktokvideo.ui.activity
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Intent
@@ -8,7 +9,11 @@ import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -18,6 +23,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
+import androidx.media3.common.MediaItem
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
 import cn.jzvd.Jzvd
 import com.fmt.tiktokvideo.R
 import com.fmt.tiktokvideo.databinding.ActivityPreviewBinding
@@ -30,13 +38,25 @@ import com.fmt.tiktokvideo.ext.loadUrl
 class PreviewActivity : AppCompatActivity() {
 
     private val mBinding: ActivityPreviewBinding by invokeViewBinding()
+    private lateinit var mRequestPermissionLauncher: ActivityResultLauncher<String>
+    private var mIsVideo: Boolean = false
+    private var mPlayer: ExoPlayer? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         setContentView(mBinding.root)
+        mIsVideo = intent.getBooleanExtra(KEY_PREVIEW_VIDEO, false)
         setUpSystemBars()
-        requestPermission()
+        registerPermissionLauncher()
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (Jzvd.backPress()) {
+                    return
+                }
+                finish()
+            }
+        })
     }
 
     private fun setUpSystemBars() {
@@ -57,38 +77,53 @@ class PreviewActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestPermission() {
+    private fun registerPermissionLauncher() {
+        mRequestPermissionLauncher =
+            registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+                handlePermissionResult(isGranted)
+            }
         // 兼容 Android Q 以下的文件访问
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && (ContextCompat.checkSelfPermission(
                 this,
                 Manifest.permission.READ_EXTERNAL_STORAGE
             ) != PERMISSION_GRANTED)
         ) {
-            val permissions = arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-            ActivityCompat.requestPermissions(this, permissions, REQ_PREVIEW)
+            mRequestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
         } else {
             onGrantPermission()
         }
     }
 
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>, grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == REQ_PREVIEW) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PERMISSION_GRANTED) {
-                onGrantPermission()
+    /**
+     *  处理权限申请结构
+     */
+    private fun handlePermissionResult(granted: Boolean) {
+        // 权限已授予，可以直接使用功能
+        if (granted) {
+            onGrantPermission()
+        } else {
+            // 想用户解释该权限申请的必要性
+            val showRationale = ActivityCompat.shouldShowRequestPermissionRationale(
+                this, Manifest.permission.READ_EXTERNAL_STORAGE
+            )
+            //用户拒绝过但愿意重新考虑，显示权限说明后再请求
+            if (showRationale) {
+                showNoAccess()
             } else {
-                // 想用户解释该权限申请的必要性
-                val showRationale = ActivityCompat.shouldShowRequestPermissionRationale(
-                    this, Manifest.permission.READ_EXTERNAL_STORAGE
-                )
-                if (showRationale) {
-                    showNoAccess()
-                } else {
-                    goToSettings()
-                }
+                //用户永久拒绝此权限，跳转到应用设置页面
+                AlertDialog.Builder(this)
+                    .setMessage(getString(R.string.capture_permission_go_settings_message))
+                    .setNegativeButton(getString(R.string.capture_permission_no)) { dialog, _ ->
+                        dialog.dismiss()
+                        finish()
+                    }
+                    .setPositiveButton(getString(R.string.capture_permission_go_settings)) { dialog, _ ->
+                        dialog.dismiss()
+                        // 打开应用设置页面
+                        goToSettings()
+                    }
+                    .create()
+                    .show()
             }
         }
     }
@@ -96,16 +131,15 @@ class PreviewActivity : AppCompatActivity() {
     private fun onGrantPermission() {
         val previewUrl: String = intent.getStringExtra(KEY_PREVIEW_URL)
             ?: return finish()
-        val isVideo: Boolean = intent.getBooleanExtra(KEY_PREVIEW_VIDEO, false)
         mBinding.actionOk.setOnClickListener {
-            PublishActivity.start(this, previewUrl, isVideo)
+            PublishActivity.start(this, previewUrl, mIsVideo)
             finish()
         }
         mBinding.actionClose.setOnClickListener {
             finish()
         }
 
-        if (isVideo) {
+        if (mIsVideo) {
             previewVideo(previewUrl)
         } else {
             previewImage(previewUrl)
@@ -123,10 +157,17 @@ class PreviewActivity : AppCompatActivity() {
     /**
      *  预览视频
      */
+    @SuppressLint("ClickableViewAccessibility")
+    @OptIn(UnstableApi::class)
     private fun previewVideo(videoUrl: String) {
         mBinding.playerView.isVisible = true
-        mBinding.playerView.setUp(videoUrl, "")
-        mBinding.playerView.startVideo()
+        mPlayer = ExoPlayer.Builder(this).build().also { exoPlayer ->
+            // 关联 播放器实例 和 playerView 和 controllerView
+            mBinding.playerView.player = exoPlayer
+            exoPlayer.setMediaItem(MediaItem.fromUri(videoUrl))
+            exoPlayer.playWhenReady = true
+            exoPlayer.prepare()
+        }
     }
 
     /**
@@ -150,26 +191,20 @@ class PreviewActivity : AppCompatActivity() {
         ) { _, _ ->
             finish()
         }.setNegativeButton(R.string.capture_permission_ok) { _, _ ->
-            requestPermission()
+            mRequestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
         }.create().show()
     }
 
-    override fun onPause() {
-        super.onPause()
-        Jzvd.releaseAllVideos()
-    }
-
-    override fun onBackPressed() {
-        if (Jzvd.backPress()) {
-            return
-        }
-        super.onBackPressed()
+    override fun onDestroy() {
+        super.onDestroy()
+        mPlayer?.playWhenReady = false
+        mPlayer?.release()
+        mPlayer = null
     }
 
     companion object {
         private const val KEY_PREVIEW_URL = "preview_url"
         private const val KEY_PREVIEW_VIDEO = "preview_video"
-        const val REQ_PREVIEW = 1000
 
         fun start(activity: Activity, previewUrl: String, isVideo: Boolean) {
             val intent = Intent(activity, PreviewActivity::class.java)
