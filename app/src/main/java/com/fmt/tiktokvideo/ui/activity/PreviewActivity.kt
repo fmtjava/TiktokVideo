@@ -8,7 +8,6 @@ import android.content.Intent
 import android.content.pm.PackageManager.PERMISSION_GRANTED
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.ActivityResultLauncher
@@ -17,7 +16,6 @@ import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -29,6 +27,7 @@ import com.fmt.tiktokvideo.R
 import com.fmt.tiktokvideo.databinding.ActivityPreviewBinding
 import com.fmt.tiktokvideo.ext.invokeViewBinding
 import com.fmt.tiktokvideo.ext.loadUrl
+import com.fmt.tiktokvideo.utils.goToSettings
 
 /**
  *  拍照/录制视频预览页面
@@ -156,18 +155,6 @@ class PreviewActivity : AppCompatActivity() {
     private fun previewVideo(videoUrl: String) {
         mBinding.wrapperPlayerView.isVisible = true
         mBinding.wrapperPlayerView.bindData(videoUrl)
-    }
-
-    /**
-     *  用户点击不在询问后，跳转至设置页面
-     */
-    private fun goToSettings() {
-        Intent(ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri()).apply {
-            this.addCategory(Intent.CATEGORY_DEFAULT)
-            this.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }.also { intent ->
-            startActivity(intent)
-        }
     }
 
     /**

@@ -4,7 +4,6 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
 import android.content.ContentValues
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.hardware.camera2.CameraCharacteristics
 import android.media.MediaScannerConnection
@@ -14,7 +13,6 @@ import android.os.Bundle
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.provider.MediaStore
-import android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS
 import android.util.Size
 import android.view.MotionEvent
 import android.view.Surface
@@ -48,7 +46,6 @@ import androidx.camera.video.VideoCapture
 import androidx.camera.video.VideoRecordEvent
 import androidx.core.content.ContextCompat
 import androidx.core.content.PermissionChecker
-import androidx.core.net.toUri
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
@@ -64,9 +61,11 @@ import com.fmt.nav_annotation.NavDestination
 import com.fmt.tiktokvideo.R
 import com.fmt.tiktokvideo.databinding.ActivityCaptureBinding
 import com.fmt.tiktokvideo.ext.invokeViewBinding
+import com.fmt.tiktokvideo.utils.goToSettings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -115,8 +114,7 @@ class CaptureActivity : AppCompatActivity() {
             }
         val neededPermissions = PERMISSIONS.filter { permission ->
             ContextCompat.checkSelfPermission(
-                this,
-                permission
+                this, permission
             ) != PackageManager.PERMISSION_GRANTED
         }.toTypedArray()
         if (neededPermissions.isNotEmpty()) {
@@ -237,13 +235,10 @@ class CaptureActivity : AppCompatActivity() {
                         dialog.dismiss()
                         // 打开应用设置页面
                         goToSettings()
-                    }
-                    .create()
-                    .show()
+                    }.create().show()
             } else {
                 // 权限没有被永久拒绝，可以再次申请
-                AlertDialog.Builder(this)
-                    .setMessage(getString(R.string.capture_permission_message))
+                AlertDialog.Builder(this).setMessage(getString(R.string.capture_permission_message))
                     .setNegativeButton(getString(R.string.capture_permission_no)) { dialog, _ ->
                         dialog.dismiss()
                         this@CaptureActivity.finish()
@@ -252,18 +247,6 @@ class CaptureActivity : AppCompatActivity() {
                         dialog.dismiss()
                     }.create().show()
             }
-        }
-    }
-
-    /**
-     *  用户点击不在询问后，跳转至设置页面
-     */
-    private fun goToSettings() {
-        Intent(ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri()).apply {
-            this.addCategory(Intent.CATEGORY_DEFAULT)
-            this.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-        }.also { intent ->
-            startActivity(intent)
         }
     }
 
@@ -304,18 +287,14 @@ class CaptureActivity : AppCompatActivity() {
         updateFlashButtonUI()
         // preview 画面预览
         val displayRotation = mBinding.previewView.display?.rotation ?: Surface.ROTATION_0
-        val preview = Preview.Builder()
-            .setTargetRotation(displayRotation)
-            .build().also {
-                it.surfaceProvider = mBinding.previewView.surfaceProvider
-            }
+        val preview = Preview.Builder().setTargetRotation(displayRotation).build().also {
+            it.surfaceProvider = mBinding.previewView.surfaceProvider
+        }
 
         // imageCapture 图片拍摄，设置图片拍摄质量参数
-        this.mImageCapture = ImageCapture.Builder()
-            .setTargetRotation(displayRotation)
+        this.mImageCapture = ImageCapture.Builder().setTargetRotation(displayRotation)
             .setCaptureMode(CAPTURE_MODE_MINIMIZE_LATENCY) // 压缩图片的质量
-            .setJpegQuality(100)
-            .setFlashMode(mFlashMode) // 设置闪光灯模式
+            .setJpegQuality(100).setFlashMode(mFlashMode) // 设置闪光灯模式
             .setResolutionSelector(
                 ResolutionSelector.Builder().setResolutionStrategy(
                     ResolutionStrategy(
@@ -328,8 +307,7 @@ class CaptureActivity : AppCompatActivity() {
         if (isSupportCombinedUsages(cameraSelector, cameraProvider)) {
             // 设置视频录制参数
             val recorder = Recorder.Builder()
-                .setQualitySelector(getQualitySelector(cameraSelector, cameraProvider))
-                .build()
+                .setQualitySelector(getQualitySelector(cameraSelector, cameraProvider)).build()
             mVideoCapture = VideoCapture.withOutput(recorder)
             useCases.add(mVideoCapture)
         }
@@ -338,9 +316,7 @@ class CaptureActivity : AppCompatActivity() {
             // 注意：要先解绑
             cameraProvider.unbindAll()
             this.mCamera = cameraProvider.bindToLifecycle(
-                this,
-                cameraSelector,
-                *useCases.toTypedArray()
+                this, cameraSelector, *useCases.toTypedArray()
             )
             bindUI()
         } catch (e: Exception) {
@@ -368,8 +344,7 @@ class CaptureActivity : AppCompatActivity() {
      */
     @SuppressLint("RestrictedApi")
     private fun getQualitySelector(
-        cameraSelector: CameraSelector,
-        cameraProvider: ProcessCameraProvider
+        cameraSelector: CameraSelector, cameraProvider: ProcessCameraProvider
     ): QualitySelector {
         val cameraInfo = cameraProvider.availableCameraInfos.filter {
             it.lensFacing == cameraSelector.lensFacing
@@ -377,13 +352,11 @@ class CaptureActivity : AppCompatActivity() {
         if (cameraInfo.isEmpty()) {
             return QualitySelector.from(Quality.SD)
         }
-        val supportQualities =
-            Recorder.getVideoCapabilities(cameraInfo.first())
-                .getSupportedQualities(DynamicRange.SDR)
-                .filter {
-                    // 超清、高清、标清
-                    listOf(Quality.FHD, Quality.HD, Quality.SD).contains(it)
-                }
+        val supportQualities = Recorder.getVideoCapabilities(cameraInfo.first())
+            .getSupportedQualities(DynamicRange.SDR).filter {
+                // 超清、高清、标清
+                listOf(Quality.FHD, Quality.HD, Quality.SD).contains(it)
+            }
         return QualitySelector.from(supportQualities[0])
     }
 
@@ -483,12 +456,10 @@ class CaptureActivity : AppCompatActivity() {
         val vibrator = getSystemService(Vibrator::class.java) as Vibrator
         if (vibrator.hasVibrator()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val effect =
-                    VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE)
+                val effect = VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE)
                 vibrator.vibrate(effect)
             } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(200)
+                @Suppress("DEPRECATION") vibrator.vibrate(200)
             }
         }
         val fileName = SimpleDateFormat(FILENAME, Locale.US).format(System.currentTimeMillis())
@@ -498,16 +469,13 @@ class CaptureActivity : AppCompatActivity() {
             put(MediaStore.MediaColumns.MIME_TYPE, PHOTO_TYPE)   // 图片的类型
             if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
                 put(
-                    MediaStore.MediaColumns.RELATIVE_PATH,
-                    RELATIVE_PATH_PICTURE
+                    MediaStore.MediaColumns.RELATIVE_PATH, RELATIVE_PATH_PICTURE
                 ) // 实现图片保存到公共 Pictures 目录,替代绝对路径实现 Scoped Storage 兼容
             }
         }
 
         val outputFileOptions = ImageCapture.OutputFileOptions.Builder(
-            contentResolver,
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            contentValues
+            contentResolver, MediaStore.Images.Media.EXTERNAL_CONTENT_URI, contentValues
         ).build()
 
         mImageCapture?.takePicture(
@@ -520,8 +488,7 @@ class CaptureActivity : AppCompatActivity() {
                 }
 
                 override fun onError(exception: ImageCaptureException) {
-                    Toast.makeText(applicationContext, exception.message, Toast.LENGTH_SHORT)
-                        .show()
+                    Toast.makeText(applicationContext, exception.message, Toast.LENGTH_SHORT).show()
                 }
             })
     }
@@ -534,12 +501,10 @@ class CaptureActivity : AppCompatActivity() {
         val vibrator = getSystemService(Vibrator::class.java) as Vibrator
         if (vibrator.hasVibrator()) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                val effect =
-                    VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE)
+                val effect = VibrationEffect.createOneShot(200, VibrationEffect.DEFAULT_AMPLITUDE)
                 vibrator.vibrate(effect)
             } else {
-                @Suppress("DEPRECATION")
-                vibrator.vibrate(200)
+                @Suppress("DEPRECATION") vibrator.vibrate(200)
             }
         }
         // 放大录制按钮，增强视觉体验
@@ -554,62 +519,56 @@ class CaptureActivity : AppCompatActivity() {
             put(MediaStore.MediaColumns.MIME_TYPE, VIDEO_TYPE)  // 视频的类型
             if (Build.VERSION.SDK_INT > Build.VERSION_CODES.P) {
                 put(
-                    MediaStore.MediaColumns.RELATIVE_PATH,
-                    RELATIVE_PATH_VIDEO
+                    MediaStore.MediaColumns.RELATIVE_PATH, RELATIVE_PATH_VIDEO
                 ) // 实现图片保存到公共 Movies 目录,替代绝对路径实现 Scoped Storage 兼容
             }
         }
 
         val outputOptions = MediaStoreOutputOptions.Builder(
-            contentResolver,
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI
-        )
-            .setContentValues(contentValues)
-            .setDurationLimitMillis(11_000) // 录制视频的的最大限制
+            contentResolver, MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+        ).setContentValues(contentValues).setDurationLimitMillis(11_000) // 录制视频的的最大限制
             .build()
-        mVideoRecording = mVideoCapture?.output?.prepareRecording(this, outputOptions)
-            .apply {
-                if (PermissionChecker.checkSelfPermission(
-                        this@CaptureActivity,
-                        Manifest.permission.RECORD_AUDIO
-                    ) == PermissionChecker.PERMISSION_GRANTED
-                ) {
-                    this?.withAudioEnabled()
+        mVideoRecording = mVideoCapture?.output?.prepareRecording(this, outputOptions).apply {
+            if (PermissionChecker.checkSelfPermission(
+                    this@CaptureActivity, Manifest.permission.RECORD_AUDIO
+                ) == PermissionChecker.PERMISSION_GRANTED
+            ) {
+                this?.withAudioEnabled()
+            }
+        }?.start(ContextCompat.getMainExecutor(this)) {
+            when (it) {
+                // 开始视频录制
+                is VideoRecordEvent.Start -> {
+                    mBinding.captureTips.setText(R.string.capture_tips_stop_recording)
                 }
-            }?.start(ContextCompat.getMainExecutor(this)) {
-                when (it) {
-                    // 开始视频录制
-                    is VideoRecordEvent.Start -> {
-                        mBinding.captureTips.setText(R.string.capture_tips_stop_recording)
-                    }
 
-                    is VideoRecordEvent.Status -> {
-                        // 录制中，录制时长，文件体积等信息
-                        val recordedMills =
-                            TimeUnit.NANOSECONDS.toMillis(it.recordingStats.recordedDurationNanos)
-                        val progress = (recordedMills * 1.0f / (10 * 1000) * 100).roundToInt()
-                        mBinding.recordView.progress = progress
+                is VideoRecordEvent.Status -> {
+                    // 录制中，录制时长，文件体积等信息
+                    val recordedMills =
+                        TimeUnit.NANOSECONDS.toMillis(it.recordingStats.recordedDurationNanos)
+                    val progress = (recordedMills * 1.0f / (10 * 1000) * 100).roundToInt()
+                    mBinding.recordView.progress = progress
+                }
+                // 录制结束
+                is VideoRecordEvent.Finalize -> {
+                    mBinding.captureTips.setText(R.string.capture_tips)
+                    // 录制视频成功
+                    if (!it.hasError()) {
+                        val saveUri = it.outputResults.outputUri
+                        onFileSaved(saveUri)
+                    } else {
+                        // 录制视频失败
+                        mVideoRecording?.close()
+                        mVideoRecording = null
                     }
-                    // 录制结束
-                    is VideoRecordEvent.Finalize -> {
-                        mBinding.captureTips.setText(R.string.capture_tips)
-                        // 录制视频成功
-                        if (!it.hasError()) {
-                            val saveUri = it.outputResults.outputUri
-                            onFileSaved(saveUri)
-                        } else {
-                            // 录制视频失败
-                            mVideoRecording?.close()
-                            mVideoRecording = null
-                        }
-                        // 恢复录制按钮的状态
-                        mBinding.recordView.scaleX = 1.0f
-                        mBinding.recordView.scaleY = 1.0f
-                        mBinding.recordView.progress = 0
-                        mBinding.captureTips.setText(R.string.capture_tips)
-                    }
+                    // 恢复录制按钮的状态
+                    mBinding.recordView.scaleX = 1.0f
+                    mBinding.recordView.scaleY = 1.0f
+                    mBinding.recordView.progress = 0
+                    mBinding.captureTips.setText(R.string.capture_tips)
                 }
             }
+        }
     }
 
     /**
@@ -617,8 +576,7 @@ class CaptureActivity : AppCompatActivity() {
      */
     @OptIn(ExperimentalCamera2Interop::class)
     private fun isSupportCombinedUsages(
-        cameraSelector: CameraSelector,
-        cameraProvider: CameraProvider
+        cameraSelector: CameraSelector, cameraProvider: CameraProvider
     ): Boolean {
         val level = cameraSelector.filter(cameraProvider.availableCameraInfos).firstOrNull()
             ?.let { Camera2CameraInfo.from(it) }
@@ -641,34 +599,90 @@ class CaptureActivity : AppCompatActivity() {
                     null,
                     null
                 ) ?: return@launch
-                cursor.moveToFirst()
-                // 取出录制图片/视频本地路径
-                val outputFilePath =
-                    cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA))
-                // 取出录制图片/视频的文件类型
-                val outputFileMimeType =
-                    cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE))
-
-                // 记得关闭，防止内存泄露
-                cursor.close()
-
-                // 主动扫描一次相册，保证图片/视频被成功保存
-                MediaScannerConnection.scanFile(
-                    this@CaptureActivity,
-                    arrayOf(outputFilePath),
-                    arrayOf(outputFileMimeType),
-                    null
-                )
+                // 先尝试获取出录制图片/视频本地路径
+                var outputFilePath: String? = null
+                var outputFileMimeType: String? = null
+                var isVideo = false
+                cursor.use {
+                    if (cursor.moveToFirst()) {
+                        val dataIndex = cursor.getColumnIndex(MediaStore.MediaColumns.DATA)
+                        if (dataIndex >= 0) {
+                            val path = cursor.getString(dataIndex)
+                            if (!path.isNullOrEmpty() && File(path).exists()) {
+                                outputFilePath = path
+                            }
+                        }
+                        // 取出录制图片/视频的文件类型
+                        outputFileMimeType =
+                            cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE))
+                        isVideo = MimeTypes.isVideo(outputFileMimeType)
+                    }
+                }
+                // 如果无法获取路径（Android 11 等场景），则复制到应用私有目录
+                if (outputFilePath == null) {
+                    outputFilePath = copyUriToFile(savedUri, isVideo)
+                }
+                if (outputFilePath == null) {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            applicationContext, R.string.file_deal_error, Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                    return@launch
+                }
+                // 主动扫描一次相册（仅对原始文件路径，复制的文件不需要）
+                if (!outputFilePath.startsWith(cacheDir.absolutePath)) {
+                    MediaScannerConnection.scanFile(
+                        this@CaptureActivity,
+                        arrayOf(outputFilePath),
+                        arrayOf(outputFileMimeType),
+                        null
+                    )
+                }
 
                 withContext(Dispatchers.Main) {
-                    val isVideo = MimeTypes.isVideo(outputFileMimeType)
                     PreviewActivity.start(this@CaptureActivity, outputFilePath, isVideo)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        applicationContext,
+                        "${getString(R.string.file_deal_error)}:${e.message}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
     }
+
+    // 复制 URI 内容到应用私有目录的工具方法
+    private suspend fun copyUriToFile(uri: Uri, isVideo: Boolean): String? =
+        withContext(Dispatchers.IO) {
+            try {
+                val inputStream = contentResolver.openInputStream(uri) ?: return@withContext null
+                // 生成文件名
+                val extension = if (isVideo) ".mp4" else ".jpg"
+                val fileName = "temp_${System.currentTimeMillis()}$extension"
+
+                // 创建输出目录
+                val outputDir = if (isVideo) {
+                    File(cacheDir, "videos").apply { mkdirs() }
+                } else {
+                    File(cacheDir, "images").apply { mkdirs() }
+                }
+                val outputFile = File(outputDir, fileName)
+                // 复制文件
+                outputFile.outputStream().use { output ->
+                    inputStream.copyTo(output)
+                }
+                inputStream.close()
+                outputFile.absolutePath
+            } catch (e: Exception) {
+                e.printStackTrace()
+                null
+            }
+        }
 
     companion object {
         // 动态权限申请

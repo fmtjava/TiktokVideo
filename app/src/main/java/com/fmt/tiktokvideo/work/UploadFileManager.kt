@@ -25,6 +25,7 @@ object UploadFileManager {
         isVideo: Boolean,
         callback: (String?, String?) -> Unit
     ) {
+        // 创建任务请求队列
         val workRequests = mutableListOf<OneTimeWorkRequest>()
         if (isVideo) {
             val coverFilePath = FileUtil.generateVideoCover(originalFilePath, 200)
@@ -47,6 +48,7 @@ object UploadFileManager {
             )
         )
 
+        // 开始执行任务
         val workContinuation = WorkManager.getInstance(AppContext).beginWith(workRequests)
         workContinuation.enqueue()
 
@@ -63,6 +65,7 @@ object UploadFileManager {
                 val outputData = workInfo.outputData
                 val uuid = workInfo.id
 
+                // 上传成功事件
                 if (state == WorkInfo.State.SUCCEEDED) {
                     val coverFileUploadSuccess =
                         workRequests.size == 2 && uuid == workRequests.first().id
@@ -73,7 +76,7 @@ object UploadFileManager {
                         originalFileUploadUrl = uploadUrl
                     }
                     completedCount++
-                } else if (state == WorkInfo.State.FAILED) {
+                } else if (state == WorkInfo.State.FAILED) { // 上传失败事件
                     val coverFileUploadFail =
                         workRequests.size == 2 && uuid == workRequests.first().id
                     withContext(Dispatchers.Main) {
@@ -85,6 +88,7 @@ object UploadFileManager {
                     }
                     failedCount++
                 }
+                // 判断上传任务数是否结束
                 if (completedCount + failedCount >= workRequests.size) {
                     callback(coverFileUploadUrl, originalFileUploadUrl)
                 }
@@ -92,6 +96,7 @@ object UploadFileManager {
         }
     }
 
+    // 获取一次性任务请求
     private fun getOneTimeWorkRequest(filePath: String, fileType: String): OneTimeWorkRequest {
         return OneTimeWorkRequestBuilder<UploadFileWorker>()
             .setInputData(

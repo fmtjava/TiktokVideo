@@ -21,7 +21,7 @@ enum class FileType(val typeName: String) {
 /**
  * 上传任务
  */
-class UploadFileWorker(appContext: Context, params: WorkerParameters) :
+class UploadFileWorker(val appContext: Context, params: WorkerParameters) :
     CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
@@ -30,27 +30,32 @@ class UploadFileWorker(appContext: Context, params: WorkerParameters) :
         if (TextUtils.isEmpty(filePath) || TextUtils.isEmpty(fileType)) {
             return Result.failure()
         } else {
-            val file = File(filePath)
+            val uploadFile = File(filePath)
             val fileTypeRequestBody = fileType.toRequestBody("text/plain".toMediaTypeOrNull())
             var filePart: MultipartBody.Part? = null
             if (FileType.IMAGE.typeName == fileType) {
                 filePart = MultipartBody.Part.createFormData(
                     "file",
-                    file.name,
-                    file.asRequestBody("image/jpeg".toMediaTypeOrNull())
+                    uploadFile.name,
+                    uploadFile.asRequestBody("image/jpeg".toMediaTypeOrNull())
                 )
             } else if (FileType.VIDEO.typeName == fileType) {
                 filePart = MultipartBody.Part.createFormData(
                     "file",
-                    file.name,
-                    file.asRequestBody("video/mp4".toMediaTypeOrNull())
+                    uploadFile.name,
+                    uploadFile.asRequestBody("video/mp4".toMediaTypeOrNull())
                 )
             }
             if (filePart == null) {
                 return Result.failure()
             }
+            // 真正进行图片上传
             val result = ApiService.get().uploadFile(URLs.UPLOAD_URL, fileTypeRequestBody, filePart)
             return if (result.success) {
+                // 删除缓存的复制的文件，避免占用过多空间
+                if (uploadFile.absolutePath.startsWith(appContext.cacheDir.absolutePath)) {
+                    uploadFile.delete()
+                }
                 val fileUrl = "${URLs.BASE_UPLOAD_URL}${result.data?.fileName}"
                 val outputData = Data.Builder().putString("fileUrl", fileUrl).build()
                 Result.success(outputData)

@@ -26,6 +26,7 @@
     <string name="file_upload_desc_illegal">描述内容不能为空</string>
     <string name="file_upload_success">发布成功</string>
     <string name="file_upload_fail">发布失败</string>
+    <string name="file_deal_error">无法处理文件</string>
     <string name="camera_flip">翻转</string>
     <string name="camera_flash">闪光灯</string>
     <string name="camera_album">相册</string>
