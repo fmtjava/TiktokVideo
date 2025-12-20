@@ -1,8 +1,8 @@
 package com.fmt.tiktokvideo.http
 
 import android.text.TextUtils
+import com.fmt.tiktokvideo.cache.Preference
 import com.fmt.tiktokvideo.cache.UserManager
-import com.fmt.tiktokvideo.cache.encryptedPrefs
 import okhttp3.Interceptor
 import okhttp3.Response
 
@@ -13,7 +13,7 @@ class AuthInterceptor : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val originalRequest = chain.request()
         val builder = originalRequest.newBuilder()
-        val token = encryptedPrefs.getString("api_token", "")
+        val token by Preference("api_token", "")
         if (!TextUtils.isEmpty(token)) {
             builder.header("Authorization", "Bearer $token")
         }
