@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<merge xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <androidx.media3.ui.PlayerView
+        android:id="@+id/player_view"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:keepScreenOn="true"
+        app:keep_content_on_player_reset="false"
+        app:player_layout_id="@layout/layout_simple_customize_player_view"
+        app:resize_mode="zoom"
+        app:surface_type="texture_view"
+        app:use_controller="false" />
+
+    <androidx.appcompat.widget.AppCompatImageView
+        android:id="@+id/play_btn"
+        android:layout_width="@dimen/dp_40"
+        android:layout_height="@dimen/dp_40"
+        android:layout_gravity="center"
+        android:src="@mipmap/icon_video_play"
+        android:visibility="gone" />
+
+</merge>

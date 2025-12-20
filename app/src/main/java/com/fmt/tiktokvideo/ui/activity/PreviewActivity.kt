@@ -23,9 +23,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
-import androidx.media3.common.MediaItem
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import cn.jzvd.Jzvd
 import com.fmt.tiktokvideo.R
 import com.fmt.tiktokvideo.databinding.ActivityPreviewBinding
@@ -35,12 +33,12 @@ import com.fmt.tiktokvideo.ext.loadUrl
 /**
  *  拍照/录制视频预览页面
  */
+@UnstableApi
 class PreviewActivity : AppCompatActivity() {
 
     private val mBinding: ActivityPreviewBinding by invokeViewBinding()
-    private lateinit var mRequestPermissionLauncher: ActivityResultLauncher<String>
     private var mIsVideo: Boolean = false
-    private var mPlayer: ExoPlayer? = null
+    private lateinit var mRequestPermissionLauncher: ActivityResultLauncher<String>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
@@ -84,8 +82,7 @@ class PreviewActivity : AppCompatActivity() {
             }
         // 兼容 Android Q 以下的文件访问
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q && (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.READ_EXTERNAL_STORAGE
+                this, Manifest.permission.READ_EXTERNAL_STORAGE
             ) != PERMISSION_GRANTED)
         ) {
             mRequestPermissionLauncher.launch(Manifest.permission.READ_EXTERNAL_STORAGE)
@@ -121,16 +118,13 @@ class PreviewActivity : AppCompatActivity() {
                         dialog.dismiss()
                         // 打开应用设置页面
                         goToSettings()
-                    }
-                    .create()
-                    .show()
+                    }.create().show()
             }
         }
     }
 
     private fun onGrantPermission() {
-        val previewUrl: String = intent.getStringExtra(KEY_PREVIEW_URL)
-            ?: return finish()
+        val previewUrl: String = intent.getStringExtra(KEY_PREVIEW_URL) ?: return finish()
         mBinding.actionOk.setOnClickListener {
             PublishActivity.start(this, previewUrl, mIsVideo)
             finish()
@@ -160,14 +154,8 @@ class PreviewActivity : AppCompatActivity() {
     @SuppressLint("ClickableViewAccessibility")
     @OptIn(UnstableApi::class)
     private fun previewVideo(videoUrl: String) {
-        mBinding.playerView.isVisible = true
-        mPlayer = ExoPlayer.Builder(this).build().also { exoPlayer ->
-            // 关联 播放器实例 和 playerView 和 controllerView
-            mBinding.playerView.player = exoPlayer
-            exoPlayer.setMediaItem(MediaItem.fromUri(videoUrl))
-            exoPlayer.playWhenReady = true
-            exoPlayer.prepare()
-        }
+        mBinding.wrapperPlayerView.isVisible = true
+        mBinding.wrapperPlayerView.bindData(videoUrl)
     }
 
     /**
@@ -196,10 +184,8 @@ class PreviewActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        mBinding.wrapperPlayerView.release()
         super.onDestroy()
-        mPlayer?.playWhenReady = false
-        mPlayer?.release()
-        mPlayer = null
     }
 
     companion object {

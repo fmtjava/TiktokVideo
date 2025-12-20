@@ -6,15 +6,12 @@
     android:background="@color/black"
     android:orientation="vertical">
 
-    <androidx.media3.ui.PlayerView
-        android:id="@+id/player_view"
+    <com.fmt.tiktokvideo.exoplayer.WrapperPlayerView
+        android:id="@+id/wrapper_player_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:keepScreenOn="true"
-        app:keep_content_on_player_reset="false"
-        app:surface_type="texture_view"
-        app:resize_mode="fit"
-        android:visibility="invisible" />
+        android:layout_gravity="center"
+        android:visibility="gone"/>
 
     <com.github.chrisbanes.photoview.PhotoView
         android:id="@+id/photo_view"
