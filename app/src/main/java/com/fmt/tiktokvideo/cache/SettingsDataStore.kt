@@ -16,8 +16,7 @@ val encryptedPrefs = EncryptedSharedPreferences(
     masterKey
 )
 
-class Preference<T>(val name: String, val default: T, val prefName: String = "default") :
-    ReadWriteProperty<Any?, T> {
+class Preference<T>(val name: String, val default: T) : ReadWriteProperty<Any?, T> {
 
     override fun getValue(thisRef: Any?, property: KProperty<*>): T {
         return findPreference(name)
@@ -50,5 +49,4 @@ class Preference<T>(val name: String, val default: T, val prefName: String = "de
             }
         }
     }
-
 }
