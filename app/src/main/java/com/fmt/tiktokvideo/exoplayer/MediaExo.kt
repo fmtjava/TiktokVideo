@@ -1,11 +1,11 @@
 package com.fmt.tiktokvideo.exoplayer
 
+import android.content.Context
 import android.graphics.SurfaceTexture
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
 import android.view.Surface
-import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
@@ -35,48 +35,6 @@ class MediaExo(jzvd: Jzvd?) : JZMediaInterface(jzvd), Player.Listener {
     private var mCallback: Runnable? = null
 
     /**
-     *  SimpleCache 不允许同一文件夹被多个实例使用，这里使用单例模式管理 SimpleCache
-     */
-    companion object {
-        @Volatile
-        private var sCache: SimpleCache? = null
-        // 使用引用计数跟踪使用缓存的实例数量，
-        private var sCacheRefCount = 0
-
-        @OptIn(UnstableApi::class)
-        @Synchronized
-        fun getOrCreateCache(context: android.content.Context): SimpleCache {
-            if (sCache == null) {
-                sCache = SimpleCache(
-                    context.cacheDir,
-                    LeastRecentlyUsedCacheEvictor(200 * 1024 * 1024),
-                    StandaloneDatabaseProvider(context)
-                )
-            }
-            // 增加引用计数
-            sCacheRefCount++
-            return sCache!!
-        }
-
-        @Synchronized
-        fun releaseCache() {
-            // 减少引用计数
-            sCacheRefCount--
-            // 当所有实例都释放后，才真正释放 SimpleCache
-            if (sCacheRefCount <= 0 && sCache != null) {
-                try {
-                    sCache?.release()
-                } catch (e: Exception) {
-                    // 忽略释放异常
-                    e.printStackTrace()
-                }
-                sCache = null
-                sCacheRefCount = 0
-            }
-        }
-    }
-
-    /**
      *  开始播放
      */
     override fun start() {
@@ -93,19 +51,10 @@ class MediaExo(jzvd: Jzvd?) : JZMediaInterface(jzvd), Player.Listener {
         handler = Handler()
         mMediaHandler.post {
             val context = jzvd.context
-            // 使用单例 SimpleCache，避免重复创建导致异常
-            val cache = getOrCreateCache(context)
-            // 构建同时支持本地文件 / content / http 的上游工厂
-            val upstreamFactory = DefaultDataSource.Factory(context, DefaultHttpDataSource.Factory())
-            // 配置带缓存的数据源
-            val cacheDataSourceFactory = CacheDataSource.Factory()
-                .setCache(cache)
-                .setUpstreamDataSourceFactory(upstreamFactory)
-                .setFlags(CacheDataSource.FLAG_BLOCK_ON_CACHE)
 
             // 创建 ExoPlayer
             mExoPlayer = ExoPlayer.Builder(context)
-                .setMediaSourceFactory(ProgressiveMediaSource.Factory(cacheDataSourceFactory))
+                .setMediaSourceFactory(ProgressiveMediaSource.Factory(getOrCreateDataSource(context)))
                 .build()
             // 设置播放模式
             mExoPlayer?.repeatMode = Player.REPEAT_MODE_OFF
@@ -311,5 +260,68 @@ class MediaExo(jzvd: Jzvd?) : JZMediaInterface(jzvd), Player.Listener {
      */
     override fun onPlayerError(error: PlaybackException) {
         handler.post { jzvd.onError(1000, 1000) }
+    }
+
+    /**
+     *  SimpleCache 不允许同一文件夹被多个实例使用，这里使用单例模式管理 SimpleCache
+     */
+    companion object {
+        @Volatile
+        private var sCache: SimpleCache? = null
+
+        @Volatile
+        private var mCacheDataSourceFactory: CacheDataSource.Factory? = null
+
+        // 使用引用计数跟踪使用缓存的实例数量，
+        private var sCacheRefCount = 0
+
+        @Synchronized
+        private fun getOrCreateCache(context: Context): SimpleCache {
+            if (sCache == null) {
+                sCache = SimpleCache(
+                    context.cacheDir,
+                    LeastRecentlyUsedCacheEvictor(200 * 1024 * 1024),
+                    StandaloneDatabaseProvider(context)
+                )
+            }
+            // 增加引用计数
+            sCacheRefCount++
+            return sCache!!
+        }
+
+        @Synchronized
+        fun releaseCache() {
+            // 减少引用计数
+            sCacheRefCount--
+            // 当所有实例都释放后，才真正释放 SimpleCache
+            if (sCacheRefCount <= 0 && sCache != null) {
+                try {
+                    sCache?.release()
+                } catch (e: Exception) {
+                    // 忽略释放异常
+                    e.printStackTrace()
+                }
+                sCache = null
+                sCacheRefCount = 0
+            }
+        }
+
+        /**
+         *  创建带缓存的数据源
+         */
+        @Synchronized
+        fun getOrCreateDataSource(context: Context): CacheDataSource.Factory {
+            if (mCacheDataSourceFactory == null) {
+                // 构建同时支持本地文件 / content / http 的上游工厂
+                val upstreamFactory =
+                    DefaultDataSource.Factory(context, DefaultHttpDataSource.Factory())
+                // 配置带缓存的数据源
+                return CacheDataSource.Factory()
+                    .setCache(getOrCreateCache(context))
+                    .setUpstreamDataSourceFactory(upstreamFactory)
+                    .setFlags(CacheDataSource.FLAG_BLOCK_ON_CACHE)
+            }
+            return mCacheDataSourceFactory!!
+        }
     }
 }

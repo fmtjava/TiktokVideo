@@ -19,6 +19,7 @@ class AuthInterceptor : Interceptor {
         }
         val authenticatedRequest = builder.build()
         val response = chain.proceed(authenticatedRequest)
+        // 目前如果 token 过期，直接退出到登录页面，真实开发场景：这里要先续 token，如果续失败再退出到登录页面
         if (response.code == 401) {
             UserManager.logout()
         }

@@ -9,6 +9,9 @@ import androidx.recyclerview.widget.RecyclerView
 import com.fmt.tiktokvideo.R
 import com.fmt.tiktokvideo.databinding.LayoutListLoadingFooterBinding
 
+/**
+ *  Paging 3 加载更多适配器
+ */
 class FooterLoadStateAdapter(val retry: () -> Unit) :
     LoadStateAdapter<FooterLoadStateAdapter.LoadStateViewHolder>() {
 

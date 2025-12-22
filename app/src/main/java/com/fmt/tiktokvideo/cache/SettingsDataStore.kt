@@ -16,6 +16,9 @@ val encryptedPrefs = EncryptedSharedPreferences(
     masterKey
 )
 
+/**
+ *  使用属性代理，简化 EncryptedSharedPreferences 的读写
+ */
 class Preference<T>(val name: String, val default: T) : ReadWriteProperty<Any?, T> {
 
     override fun getValue(thisRef: Any?, property: KProperty<*>): T {

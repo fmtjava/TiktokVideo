@@ -51,6 +51,7 @@ class HomeFragment : Fragment(R.layout.fragment_home), OnViewPagerListener {
     private fun setUpRecyclerView() {
         mHomeAdapter = HomeAdapter(this)
         val contactAdapter = mHomeAdapter.withLoadStateFooter(FooterLoadStateAdapter {
+            // 加载失败重试
             mHomeAdapter.retry()
         })
         val viewPagerLayoutManager =
