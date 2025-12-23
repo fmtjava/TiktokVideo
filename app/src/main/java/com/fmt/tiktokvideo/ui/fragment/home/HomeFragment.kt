@@ -33,7 +33,9 @@ class HomeFragment : Fragment(R.layout.fragment_home), OnViewPagerListener {
     private val mBinding: FragmentHomeBinding by invokeViewBinding<FragmentHomeBinding>()
     private val mViewModel: HomeViewModel by invokeViewModel<HomeViewModel>()
     private lateinit var mHomeAdapter: HomeAdapter
-    private var mCurrentPosition = -1
+    private var mCurrentPosition = -1 // 记录当前播放视频的位置
+    private var mChildAttachStateChangeListener: RecyclerView.OnChildAttachStateChangeListener? =
+        null
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -59,12 +61,13 @@ class HomeFragment : Fragment(R.layout.fragment_home), OnViewPagerListener {
         mBinding.listView.layoutManager = viewPagerLayoutManager
         viewPagerLayoutManager.setOnViewPagerListener(this)
         mBinding.listView.adapter = contactAdapter
-        mBinding.listView.addOnChildAttachStateChangeListener(object :
+        mChildAttachStateChangeListener = object :
             RecyclerView.OnChildAttachStateChangeListener {
             override fun onChildViewAttachedToWindow(view: View) {
             }
 
             override fun onChildViewDetachedFromWindow(view: View) {
+                // 子视图从窗口分离时，需要释放掉播放资源，减轻内存
                 val jzvd = view.findViewById<Jzvd>(R.id.video_view)
                 if (jzvd != null && Jzvd.CURRENT_JZVD != null && jzvd.jzDataSource != null &&
                     jzvd.jzDataSource.containsTheUrl(Jzvd.CURRENT_JZVD.jzDataSource.currentUrl)
@@ -74,8 +77,8 @@ class HomeFragment : Fragment(R.layout.fragment_home), OnViewPagerListener {
                     }
                 }
             }
-        })
-
+        }
+        mBinding.listView.addOnChildAttachStateChangeListener(mChildAttachStateChangeListener!!)
         mBinding.refreshLayout.setColorSchemeColors(requireContext().getColor(R.color.black))
         mBinding.refreshLayout.setOnRefreshListener {
             mHomeAdapter.refresh()
@@ -122,6 +125,7 @@ class HomeFragment : Fragment(R.layout.fragment_home), OnViewPagerListener {
     }
 
     override fun onPageRelease(isNext: Boolean, position: Int) {
+        // 视频划出时，需要释放资源
         if (mCurrentPosition == position) {
             Jzvd.releaseAllVideos()
         }
@@ -131,6 +135,7 @@ class HomeFragment : Fragment(R.layout.fragment_home), OnViewPagerListener {
         if (mCurrentPosition == position) {
             return
         }
+        // 记录正在播放的视频位置
         autoPlayVideo(position)
         mCurrentPosition = position
     }
@@ -139,9 +144,11 @@ class HomeFragment : Fragment(R.layout.fragment_home), OnViewPagerListener {
      *  自动播放列表中的第一个可见区域的视频
      */
     private fun autoPlayVideo(position: Int) {
+        //  判断第一个可见子项是否为空
         if (mBinding.listView.getChildAt(0) == null) {
             return
         }
+        // 开始自动播放
         val player = mBinding.listView.getChildAt(0).findViewById<TikTokVideoView>(R.id.video_view)
         player?.startVideoAfterPreloading()
     }
@@ -157,6 +164,11 @@ class HomeFragment : Fragment(R.layout.fragment_home), OnViewPagerListener {
 
     override fun onDestroy() {
         super.onDestroy()
+        // 移除 RecyclerView 监听器，防止内存泄漏（规则：有添加就要有移除）
+        mChildAttachStateChangeListener?.let {
+            mBinding.listView.removeOnChildAttachStateChangeListener(it)
+        }
+        mChildAttachStateChangeListener = null
         Jzvd.releaseAllVideos()
     }
 }

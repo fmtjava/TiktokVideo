@@ -51,10 +51,14 @@ class MediaExo(jzvd: Jzvd?) : JZMediaInterface(jzvd), Player.Listener {
         handler = Handler()
         mMediaHandler.post {
             val context = jzvd.context
-
-            // 创建 ExoPlayer
             mExoPlayer = ExoPlayer.Builder(context)
-                .setMediaSourceFactory(ProgressiveMediaSource.Factory(getOrCreateDataSource(context)))
+                .setMediaSourceFactory(
+                    ProgressiveMediaSource.Factory(
+                        getOrCreateDataSource(
+                            context
+                        )
+                    )
+                )
                 .build()
             // 设置播放模式
             mExoPlayer?.repeatMode = Player.REPEAT_MODE_OFF
@@ -135,23 +139,33 @@ class MediaExo(jzvd: Jzvd?) : JZMediaInterface(jzvd), Player.Listener {
     }
 
     /**
-     *  是否资源
+     *  释放资源
      */
     override fun release() {
+        // 1、先移除所有回调，防止在释放过程中继续执行
+        mCallback?.let {
+            handler?.removeCallbacks(it)
+        }
+        mCallback = null
+
         if (mMediaHandler != null && mMediaHandlerThread != null && mExoPlayer != null) {
             val tmpHandlerThread = mMediaHandlerThread
             val tmpMediaPlayer: ExoPlayer? = mExoPlayer
             SAVED_SURFACE = null
 
             mMediaHandler.post {
-                // 1、先清除 Surface，再释放 ExoPlayer
+                // 2、清除 Surface，再释放 ExoPlayer
+                tmpMediaPlayer?.playWhenReady = false
+                tmpMediaPlayer?.removeListener(this)
                 tmpMediaPlayer?.setVideoSurface(null)
                 tmpMediaPlayer?.release()
-                // 2、释放 SimpleCache 引用
+                // 3、释放 SimpleCache 引用
                 releaseCache()
-                tmpHandlerThread.quit()
+                // 4、安全退出 HandlerThread
+                tmpHandlerThread.quitSafely()
             }
-            // 3、mExoPlayer 置空
+
+            // 5、mExoPlayer 置空
             mExoPlayer = null
         }
     }
@@ -244,6 +258,7 @@ class MediaExo(jzvd: Jzvd?) : JZMediaInterface(jzvd), Player.Listener {
     private inner class OnBufferingUpdate : Runnable {
         override fun run() {
             if (mExoPlayer != null && mCallback != null) {
+                // 获取缓冲进度
                 val percent: Int = mExoPlayer!!.bufferedPercentage
                 handler.post { jzvd.setBufferProgress(percent) }
                 if (percent < 100) {

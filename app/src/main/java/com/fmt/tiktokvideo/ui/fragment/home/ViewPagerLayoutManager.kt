@@ -12,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 class ViewPagerLayoutManager(context: Context?, orientation: Int, reverseLayout: Boolean) :
     LinearLayoutManager(context, orientation, reverseLayout) {
 
-    private val mPagerSnapHelper = PagerSnapHelper()
+    private val mPagerSnapHelper = PagerSnapHelper() // 让 RecyclerView 像 ViewPager 一样一次滑动一页
     private var mOnViewPagerListener: OnViewPagerListener? = null
     private var mDrift = 0 //位移，用来判断移动方向
 
@@ -22,12 +22,14 @@ class ViewPagerLayoutManager(context: Context?, orientation: Int, reverseLayout:
     private val mChildAttachStateChangeListener: RecyclerView.OnChildAttachStateChangeListener =
         object : RecyclerView.OnChildAttachStateChangeListener {
             override fun onChildViewAttachedToWindow(view: View) {
+                // 检测第一个 Attached View
                 if (mOnViewPagerListener != null && childCount == 1) {
                     mOnViewPagerListener!!.onInitComplete()
                 }
             }
 
             override fun onChildViewDetachedFromWindow(view: View) {
+                // 回调移除事件
                 if (mDrift >= 0) {
                     if (mOnViewPagerListener != null) mOnViewPagerListener!!.onPageRelease(
                         true, getPosition(view)
@@ -46,6 +48,14 @@ class ViewPagerLayoutManager(context: Context?, orientation: Int, reverseLayout:
         view?.addOnChildAttachStateChangeListener(mChildAttachStateChangeListener)
     }
 
+    override fun onDetachedFromWindow(view: RecyclerView?, recycler: RecyclerView.Recycler?) {
+        super.onDetachedFromWindow(view, recycler)
+        // 移除监听器，防止内存泄漏
+        view?.removeOnChildAttachStateChangeListener(mChildAttachStateChangeListener)
+        // 清理监听器引用
+        mOnViewPagerListener = null
+    }
+
     /**
      * 滑动状态的改变
      * 缓慢拖拽-> SCROLL_STATE_DRAGGING
@@ -55,9 +65,12 @@ class ViewPagerLayoutManager(context: Context?, orientation: Int, reverseLayout:
     override fun onScrollStateChanged(state: Int) {
         super.onScrollStateChanged(state)
         if (state == RecyclerView.SCROLL_STATE_IDLE) {
+            // 找到应该对齐到目标位置的子视图
             val viewIdle = mPagerSnapHelper.findSnapView(this)
             if (viewIdle != null) {
+                // 获取齐到目标位置的子视图的位置
                 val positionIdle = getPosition(viewIdle)
+                // 回调选中事件
                 if (mOnViewPagerListener != null && childCount == 1) {
                     mOnViewPagerListener!!.onPageSelected(
                         positionIdle, positionIdle == itemCount - 1
@@ -67,6 +80,7 @@ class ViewPagerLayoutManager(context: Context?, orientation: Int, reverseLayout:
         }
     }
 
+    // 横向滚动
     override fun scrollHorizontallyBy(
         dx: Int, recycler: RecyclerView.Recycler?, state: RecyclerView.State?
     ): Int {
@@ -74,6 +88,7 @@ class ViewPagerLayoutManager(context: Context?, orientation: Int, reverseLayout:
         return super.scrollHorizontallyBy(dx, recycler, state)
     }
 
+    // 纵向滚动
     override fun scrollVerticallyBy(
         dy: Int, recycler: RecyclerView.Recycler?, state: RecyclerView.State?
     ): Int {
@@ -81,12 +96,10 @@ class ViewPagerLayoutManager(context: Context?, orientation: Int, reverseLayout:
         return super.scrollVerticallyBy(dy, recycler, state)
     }
 
-
     /**
      * 设置监听
      */
     fun setOnViewPagerListener(listener: OnViewPagerListener?) {
         this.mOnViewPagerListener = listener
     }
-
 }
