@@ -2,7 +2,14 @@ package com.fmt.nav_annotation.compiler
 
 import com.fmt.nav_annotation.NavData
 import com.fmt.nav_annotation.NavDestination
-import com.google.auto.service.AutoService
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.validate
 import com.squareup.kotlinpoet.ClassName
 import com.squareup.kotlinpoet.CodeBlock
 import com.squareup.kotlinpoet.FileSpec
@@ -11,86 +18,118 @@ import com.squareup.kotlinpoet.KModifier
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.PropertySpec
 import com.squareup.kotlinpoet.TypeSpec
-import java.io.File
-import javax.annotation.processing.AbstractProcessor
-import javax.annotation.processing.Filer
-import javax.annotation.processing.Messager
-import javax.annotation.processing.ProcessingEnvironment
-import javax.annotation.processing.Processor
-import javax.annotation.processing.RoundEnvironment
-import javax.annotation.processing.SupportedAnnotationTypes
-import javax.annotation.processing.SupportedSourceVersion
-import javax.lang.model.SourceVersion
-import javax.lang.model.element.TypeElement
-import javax.tools.Diagnostic
-import javax.tools.StandardLocation
+import java.io.OutputStreamWriter
+import java.nio.charset.StandardCharsets
 
 /**
- *  导航注解处理器，编译期注解处理：在 .java文件编译为 .class前，扫描代码中指定的注解（@NavDestination），
- *                             并根据注解信息执行逻辑。
+ * 导航注解处理器（KSP 版本）
+ * 编译期注解处理：在 .kt 文件编译前，扫描代码中指定的注解（@NavDestination），
+ * 并根据注解信息执行逻辑。
  */
-@AutoService(Processor::class) // AutoService简化注册
-@SupportedSourceVersion(SourceVersion.RELEASE_11) // 等价于 getSupportedSourceVersion()
-@SupportedAnnotationTypes("com.fmt.nav_annotation.NavDestination") // 等价于 getSupportedAnnotationTypes()
-class NavProcessor : AbstractProcessor() {
+class NavProcessor(
+    private val codeGenerator: CodeGenerator,
+    private val logger: KSPLogger
+) : SymbolProcessor {
 
     // 导航页面集合
     private val navDataList = mutableListOf<NavData>()
-    // 日志输出工具，方便调试
-    private lateinit var mMessAger: Messager
-    // 文件生成工具
-    private lateinit var mFiler: Filer
 
-    /**
-     * 初始化处理器
-     */
-    override fun init(processingEnv: ProcessingEnvironment) {
-        super.init(processingEnv)
-        mMessAger = processingEnv.messager
-        mFiler = processingEnv.filer
+    override fun process(resolver: Resolver): List<KSAnnotated> {
+        logger.info("NavProcessor: enter process....")
 
-        mMessAger.printMessage(Diagnostic.Kind.NOTE, "enter init....")
+        // 1. 获取所有被 @NavDestination 标记的类
+        val symbols = resolver
+            .getSymbolsWithAnnotation(NavDestination::class.qualifiedName!!)
+            .filterIsInstance<KSClassDeclaration>()
+
+        // 2. 处理每个被标记的类
+        val ret = symbols.filter { !it.validate() }.toList()
+
+        symbols
+            .filter { it.validate() }
+            .forEach { classDeclaration ->
+                processClass(classDeclaration)
+            }
+
+        // 3. 如果收集到了数据，生成代码
+        if (navDataList.isNotEmpty()) {
+            generateNavRegistry(resolver)
+            navDataList.clear() // 清空，防止重复生成
+        }
+
+        return ret
     }
 
-    /*
-     * 遍历注解并处理，roundEnv提供当前轮次的所有注解元素
+    /**
+     * 处理单个被 @NavDestination 标记的类
      */
-    override fun process(
-        annotations: MutableSet<out TypeElement>,
-        roundEnv: RoundEnvironment
-    ): Boolean {
-        // 获取 Module 中所有被 @NavDestination 标记的元素
-        val elements = roundEnv.getElementsAnnotatedWith(NavDestination::class.java)
-        if (elements.isNotEmpty()) {
-            // 这里注意：要先 clear()，防止重复添加，因为编译器可能分多轮调用 process()
-            navDataList.clear()
-            for (element in elements) {
-                val typeElement = element as TypeElement
-                // 全类名
-                val clazzName = typeElement.qualifiedName.toString()
-                // 获取类中标记的 @NavDestination 注解
-                val annotation = typeElement.getAnnotation(NavDestination::class.java)
-                // 获取 @NavDestination 注解中的 type、route、asStarter 等参数
-                val route = annotation.route
-                val asStarter = annotation.asStarter
-                val navType = annotation.type
-                // 构建 NavData
-                val navData = NavData(route, clazzName, asStarter, navType)
-                navDataList.add(navData)
-                mMessAger.printMessage(
-                    Diagnostic.Kind.NOTE,
-                    "route=${route},asStarter=${asStarter},navType=${navType},clazzName=${clazzName}"
-                )
+    private fun processClass(classDeclaration: KSClassDeclaration) {
+        // 获取类的全限定名
+        val className = classDeclaration.qualifiedName?.asString()
+            ?: run {
+                logger.error("Class name is null", classDeclaration)
+                return
             }
-            generateNavRegistry()
+
+        // 获取 @NavDestination 注解
+        val annotation = classDeclaration.annotations
+            .find { it.shortName.asString() == "NavDestination" }
+            ?: run {
+                logger.error("Annotation not found", classDeclaration)
+                return
+            }
+
+        // 解析注解参数
+        val route = annotation.arguments
+            .find { it.name?.asString() == "route" }
+            ?.value as? String
+            ?: run {
+                logger.error("Route parameter not found", classDeclaration)
+                return
+            }
+
+        val asStarter = annotation.arguments
+            .find { it.name?.asString() == "asStarter" }
+            ?.value as? Boolean
+            ?: false
+
+        val typeArg = annotation.arguments.find { it.name?.asString() == "type" }?.value
+        val navType = when {
+            typeArg == null -> NavDestination.NavType.None
+            else -> {
+                val typeStr = typeArg.toString()
+                when {
+                    typeStr.contains(
+                        "Fragment",
+                        ignoreCase = true
+                    ) -> NavDestination.NavType.Fragment
+
+                    typeStr.contains(
+                        "Activity",
+                        ignoreCase = true
+                    ) -> NavDestination.NavType.Activity
+
+                    typeStr.contains("Dialog", ignoreCase = true) -> NavDestination.NavType.Dialog
+                    typeStr.contains("None", ignoreCase = true) -> NavDestination.NavType.None
+                    else -> NavDestination.NavType.None
+                }
+            }
         }
-        return false
+
+        // 构建 NavData
+        val navData = NavData(route, className, asStarter, navType)
+        navDataList.add(navData)
+
+        logger.info(
+            "NavProcessor: route=$route, asStarter=$asStarter, " +
+                    "navType=$navType, className=$className"
+        )
     }
 
     /**
      *  利用 kotlinPoet 生成 NavRegistry.kt 文件，存放在 nav-annotation 模块下，用于记录项目中所有的路由节点数据
      */
-    private fun generateNavRegistry() {
+    private fun generateNavRegistry(resolver: Resolver) {
         // 1. 生成成员变量 val navList:ArrayList<NavData>
         val navData = ClassName(NAV_RUNTIME_PKG_NAME, NAV_RUNTIME_NAV_DATA_CLASS_NAME)
         val arrayList =
@@ -120,9 +159,11 @@ class NavProcessor : AbstractProcessor() {
                 .initializer(CodeBlock.builder().addStatement("ArrayList<NavData>()").build())
                 .build()
 
-        // 4.构建 get 方法
-        val function = FunSpec.builder("getNavList").returns(listOfNavData)
-            .addCode(CodeBlock.builder().addStatement("return navList\n").build()).build()
+        // 4.构建 get 方法 - 返回 List<NavData>，支持 listIterator()
+        val function = FunSpec.builder("getNavList")
+            .returns(listOfNavData)
+            .addStatement("return navList")
+            .build()
 
         // 5.构建 object NavRegistry class. 并且填充属性、int{}  get 方法
         val typeSpec = TypeSpec.objectBuilder(NAV_RUNTIME_REGISTRY_CLASS_NAME)
@@ -139,23 +180,27 @@ class NavProcessor : AbstractProcessor() {
             .addImport(NavDestination.NavType::class.java, "Fragment", "Dialog", "Activity", "None")
             .build()
 
-        // 7. 写入文件
+        // 7. 写入文件（KSP 方式）
         try {
-            val resource = mFiler.createResource(
-                StandardLocation.CLASS_OUTPUT,
-                "",
+            // 使用 Dependencies(true) 表示依赖于所有输入文件
+            // 这样 KSP 在增量编译时不会删除这个文件
+            val dependencies = Dependencies(true)
+            
+            val outputStream = codeGenerator.createNewFile(
+                dependencies,
+                NAV_RUNTIME_PKG_NAME,
                 NAV_RUNTIME_REGISTRY_CLASS_NAME
             )
-            val resourcePath = resource.toUri().path
-            val appPath = resourcePath.substring(0, resourcePath.indexOf("app") + 4)
-            mMessAger.printMessage(Diagnostic.Kind.NOTE, "appPath=${appPath}")
-            val javaFilePath = File("${appPath}src/main/java")
-            if (javaFilePath.exists()) {
-                javaFilePath.mkdirs()
+
+            // 使用 OutputStreamWriter 写入文件内容
+            // FileSpec.writeTo() 接受 Appendable 参数，OutputStreamWriter 实现了 Appendable
+            OutputStreamWriter(outputStream, StandardCharsets.UTF_8).use { writer ->
+                fileSpec.writeTo(writer)
             }
-            fileSpec.writeTo(javaFilePath)
+
+            logger.info("NavProcessor: Generated NavRegistry.kt successfully at package: $NAV_RUNTIME_PKG_NAME")
         } catch (e: Exception) {
-            e.printStackTrace()
+            logger.error("NavProcessor: Failed to generate NavRegistry.kt: ${e.message}")
         }
     }
 

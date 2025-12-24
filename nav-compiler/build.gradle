@@ -1,7 +1,7 @@
 plugins {
     id 'java-library'
-    id 'kotlin-kapt'
     alias(libs.plugins.jetbrains.kotlin.jvm)
+    id("com.google.devtools.ksp") version "2.0.10-1.0.24"
 }
 
 java {
@@ -16,8 +16,7 @@ kotlin {
 }
 
 dependencies {
-    implementation libs.auto.service
-    kapt libs.auto.service
     api project(':nav-annotation')
+    implementation(libs.symbol.processing.api)
     implementation libs.kotlinpoet
 }

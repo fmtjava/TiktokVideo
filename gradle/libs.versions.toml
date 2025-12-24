@@ -6,7 +6,7 @@ coilCompose = "3.2.0"
 converterGson = "3.0.0"
 crashreport = "latest.release"
 jiaozivideoplayer = "7.7.2.3300"
-kotlin = "2.0.0"
+kotlin = "2.0.10"
 compilesdk = '35'
 kotlinpoet = "1.14.2"
 lifecycleViewmodelCompose = "2.10.0"
@@ -21,6 +21,7 @@ retrofit = "3.0.0"
 roomRuntime = "2.7.2"
 securityCryptoKtx = "1.1.0"
 startupRuntime = "1.2.0"
+symbolProcessingApi = "2.0.10-1.0.24"
 targetsdk = '35'
 minisdk = '24'
 coreKtx = "1.16.0"
@@ -88,6 +89,7 @@ okhttp-bom = { module = "com.squareup.okhttp3:okhttp-bom", version.ref = "okhttp
 photoview = { module = "com.github.chrisbanes:PhotoView", version.ref = "photoview" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 androidx-swiperefreshlayout = { group = "androidx.swiperefreshlayout", name = "swiperefreshlayout", version.ref = "swiperefreshlayout" }
+symbol-processing-api = { module = "com.google.devtools.ksp:symbol-processing-api", version.ref = "symbolProcessingApi" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
